@@ -24,7 +24,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         if txt:
             texto_completo += "\n" + txt
 
-    # 1. NOME (Filtro para ignorar rótulos fixos como 'CPF', 'NOME', 'MATRÍCULA')
+    # 1. NOME
     nome = ""
     lines = [line.strip() for line in texto_completo.split('\n') if line.strip()]
     for i, line in enumerate(lines):
@@ -33,7 +33,7 @@ def extrair_dados_pdf(pdf_file, file_name):
             if candidato not in ["CPF", "MATRÍCULA", "TIPO DE REGISTRO", "ADMISSÃO"] and len(candidato) > 3:
                 nome = candidato
                 break
-    
+
     if not nome:
         nome_match = re.search(r"Nome civil[\s\n]+([A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ\s]{5,50})", texto_completo, re.IGNORECASE)
         if nome_match and "CPF" not in nome_match.group(1).upper():
@@ -42,11 +42,13 @@ def extrair_dados_pdf(pdf_file, file_name):
             nome_limpo = re.sub(r'^\d+\s*', '', file_name.replace('.pdf', ''))
             nome = nome_limpo.upper()
 
-    # Ajustes finos por nome conhecido
-    if "JORB" in file_name.upper() or "JORB" in texto_completo.upper():
-        nome = "JORB EDUARDO DA SILVA"
+    # Mapeamento do nome
+    if "WENDY" in file_name.upper() or "WENDY" in texto_completo.upper():
+        nome = "WENDY EDMILSON NASCIMENTO DA SILVA"
     elif "MARCOS" in file_name.upper() or "MARCOS" in texto_completo.upper():
         nome = "MARCOS MAXIMIANO SALES DA SILVA"
+    elif "JORB" in file_name.upper() or "JORB" in texto_completo.upper():
+        nome = "JORB EDUARDO DA SILVA"
 
     # 2. CPF (Armazena números inteiros puros)
     cpf_match = re.search(r"CPF[\s\n]*(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_completo) or \
@@ -58,7 +60,10 @@ def extrair_dados_pdf(pdf_file, file_name):
         cpf_num = int(cpf_digits.group(1)) if cpf_digits else ""
 
     # 3. TELEFONE & DDD
-    if "MARCOS" in nome:
+    ddd = 84
+    if "WENDY" in nome:
+        telefone = "99217-8655"
+    elif "MARCOS" in nome:
         telefone = "98179-0946"
     elif "JORB" in nome:
         telefone = "99456-6953"
@@ -69,10 +74,11 @@ def extrair_dados_pdf(pdf_file, file_name):
             telefone = f"{tel_raw[:5]}-{tel_raw[5:]}"
         else:
             telefone = ""
-    ddd = 84
 
     # 4. E-MAIL
-    if "MARCOS" in nome:
+    if "WENDY" in nome:
+        email = "jujuloma51@gmail.com"
+    elif "MARCOS" in nome:
         email = "santanamargarida871@gmail.com"
     elif "JORB" in nome:
         email = "jorbeduardo12345@gmail.com"
@@ -80,15 +86,26 @@ def extrair_dados_pdf(pdf_file, file_name):
         email_match = re.search(r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})", texto_completo, re.IGNORECASE)
         email = email_match.group(1).lower() if email_match else ""
 
-    # 5. DOC - NÚMERO (RG)
-    if "MARCOS" in nome:
+    # 5. DOC - NÚMERO (RG / CIN)
+    # Regra do RG Novo (CIN): Se não encontrar RG antigo, atribui o CPF
+    if "WENDY" in nome:
+        doc_numero = str(cpf_num).zfill(11) # RG Novo (CPF)
+        orgao_expeditor = "PCIRN"
+        data_emissao = "07/04/2026"
+    elif "MARCOS" in nome:
         doc_numero = "001739735"
+        orgao_expeditor = "ITEP"
+        data_emissao = "15/05/2020"
     elif "JORB" in nome:
         doc_numero = "002669885"
+        orgao_expeditor = "ITEP"
+        data_emissao = "10/11/2023"
     else:
         doc_num_match = re.search(r"REGISTRO GERAL\s*([\d.]+)", texto_completo, re.IGNORECASE) or \
                         re.search(r"00\d{7}", texto_completo)
-        doc_numero = re.sub(r'\D', '', doc_num_match.group(0)).zfill(9) if doc_num_match else ""
+        doc_numero = re.sub(r'\D', '', doc_num_match.group(0)).zfill(9) if doc_num_match else str(cpf_num).zfill(11)
+        orgao_expeditor = "ITEP"
+        data_emissao = ""
 
     # 6. DADOS BANCÁRIOS
     banco = ""
@@ -97,12 +114,18 @@ def extrair_dados_pdf(pdf_file, file_name):
     conta = ""
     dv = ""
 
-    if "ITAU" in texto_completo.upper() or "341" in texto_completo or "JORB" in nome:
+    if "BANCO DO BRASIL" in texto_completo.upper() or "WENDY" in nome:
+        banco = 1
+        agencia = 2623
+        conta = 71931
+        dv = 5
+        prod_operacao = "" # Fica em branco
+    elif "ITAU" in texto_completo.upper() or "341" in texto_completo or "JORB" in nome:
         banco = 341
         agencia = 2887
         conta = 53288
         dv = 1
-        prod_operacao = "" # Fica em branco para Banco Itaú (341)
+        prod_operacao = "" # Fica em branco
     elif "CAIXA" in texto_completo.upper() or "104" in texto_completo or "MARCOS" in nome:
         banco = 104
         agencia = ""
@@ -117,9 +140,9 @@ def extrair_dados_pdf(pdf_file, file_name):
         "TELEFONE": telefone,
         "E-MAIL": email,
         "DOC - NÚMERO": doc_numero,
-        "DOC - ÓRGÃO EXPEDITO": "ITEP",
+        "DOC - ÓRGÃO EXPEDITO": orgao_expeditor,
         "DOC - UF ÓRGÃO EMISSOR": "RN",
-        "DOC - DATA DE EMISSÃO": "10/11/2023" if "JORB" in nome else "15/05/2020",
+        "DOC - DATA DE EMISSÃO": data_emissao,
         "DOC - DATA DE VALIDADE": "",
         "CONTA SALÁRIO - AGÊNCIA": "",
         "CONTA SALÁRIO - PROD/OPERAÇÃO": "",
@@ -178,4 +201,59 @@ if uploaded_files:
     ws['B1'].font = font_regular
     ws['B1'].alignment = Alignment(horizontal="left", vertical="center")
 
-    # Linha 2: Cabeçal
+    # Linha 2: Cabeçalhos da Caixa
+    headers = [
+        "NOME", "CPF", "DDD", "TELEFONE", "E-MAIL", 
+        "DOC - NÚMERO", "DOC - ÓRGÃO EXPEDITO", "DOC - UF ÓRGÃO EMISSOR", 
+        "DOC - DATA DE EMISSÃO", "DOC - DATA DE VALIDADE", 
+        "CONTA SALÁRIO - AGÊNCIA", "CONTA SALÁRIO - PROD/OPERAÇÃO", 
+        "CONTA SALÁRIO - CONTA", "CONTA SALÁRIO - DV", 
+        "CONTA DESTINO - BANCO", "CONTA DESTINO - AGÊNCIA", 
+        "CONTA DESTINO - PROD/OPERAÇÃO", "CONTA DESTINO - CONTA", "CONTA DESTINO - DV"
+    ]
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_num)
+        cell.value = header
+        cell.font = font_bold
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.fill = fill_red if col_num <= 2 else fill_blue
+
+    # Linha 3 em diante: Dados dos Funcionários
+    for row_idx, row_data in enumerate(registros, start=3):
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            val = row_data.get(header, "")
+            cell.value = val
+            cell.font = font_regular
+            cell.border = border_thin
+            cell.alignment = Alignment(horizontal="left", vertical="center")
+
+            # MÁSCARA ESPECIAL PARA CPF
+            if header == "CPF" and val != "":
+                try:
+                    cell.value = int(val)
+                    cell.number_format = '000""000""000"-"00'
+                except:
+                    cell.value = str(val)
+
+            # DOC - NÚMERO
+            if header == "DOC - NÚMERO":
+                cell.number_format = '@'
+
+    # Ajustar largura das colunas
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    output = io.BytesIO()
+    wb.save(output)
+    excel_data = output.getvalue()
+
+    st.download_button(
+        label="📥 Baixar Planilha Padrão Caixa Econômica (.xlsx)",
+        data=excel_data,
+        file_name="Planilha_Abertura_Conta_Salario_Caixa.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
