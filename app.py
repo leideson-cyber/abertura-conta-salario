@@ -3,6 +3,7 @@ import re
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 import pandas as pd
 import pypdf
 import streamlit as st
@@ -13,7 +14,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- 1. TELA DE LOGIN COM URL LIMPA (SEM ÂNCORAS #) ---
+# --- 1. TELA DE LOGIN COM E-MAIL TRAVADO DA MIRANTES ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -159,18 +160,16 @@ def extrair_dados_pdf(pdf_file, file_name):
         )
         email = email_match.group(1).lower() if email_match else ""
 
-    # 5. DOC - NÚMERO (RG / CIN)
+    # 5. DOC - NÚMERO (RG / CIN) & ÓRGÃO EXPEDITO (PADRÃO "SSP")
+    orgao_expeditor = "SSP"
     if "WENDY" in nome:
         doc_numero = str(cpf_num).zfill(11)
-        orgao_expeditor = "PCIRN"
         data_emissao = "07/04/2026"
     elif "MARCOS" in nome:
         doc_numero = "001739735"
-        orgao_expeditor = "ITEP"
         data_emissao = "15/05/2020"
     elif "JORB" in nome:
         doc_numero = "002669885"
-        orgao_expeditor = "ITEP"
         data_emissao = "10/11/2023"
     else:
         doc_num_match = re.search(
@@ -181,34 +180,41 @@ def extrair_dados_pdf(pdf_file, file_name):
             if doc_num_match
             else str(cpf_num).zfill(11)
         )
-        orgao_expeditor = "ITEP"
         data_emissao = ""
 
-    # 6. DADOS BANCÁRIOS
+    # 6. DADOS BANCÁRIOS & REGRA DA CAIXA (104)
     banco = ""
     prod_operacao = ""
     agencia = ""
     conta = ""
     dv = ""
 
-    if "BANCO DO BRASIL" in texto_completo.upper() or "WENDY" in nome:
+    texto_upper = texto_completo.upper()
+
+    if "BANCO DO BRASIL" in texto_upper or "WENDY" in nome:
         banco = 1
         agencia = 2623
         conta = 71931
         dv = 5
         prod_operacao = ""
-    elif "ITAU" in texto_completo.upper() or "341" in texto_completo or "JORB" in nome:
+    elif "ITAU" in texto_upper or "341" in texto_upper or "JORB" in nome:
         banco = 341
         agencia = 2887
         conta = 53288
         dv = 1
         prod_operacao = ""
-    elif "CAIXA" in texto_completo.upper() or "104" in texto_completo or "MARCOS" in nome:
+    elif "CAIXA" in texto_upper or "104" in texto_upper or "MARCOS" in nome:
         banco = 104
         agencia = ""
         conta = ""
         dv = ""
-        prod_operacao = "CONTA CORRENTE"
+        # Busca dinamicamente no PDF o tipo de conta da Caixa
+        if "POUPANÇA" in texto_upper or "POUPANCA" in texto_upper:
+            prod_operacao = "CONTA POUPANÇA"
+        elif "CONTA FÁCIL" in texto_upper or "CONTA FACIL" in texto_upper:
+            prod_operacao = "CONTA FÁCIL"
+        else:
+            prod_operacao = "CONTA CORRENTE"
 
     return {
         "NOME": nome,
@@ -217,7 +223,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         "TELEFONE": telefone,
         "E-MAIL": email,
         "DOC - NÚMERO": doc_numero,
-        "DOC - ÓRGÃO EXPEDITO": orgao_expeditor,
+        "DOC - ÓRGÃO EXPEDITO": orgao_expeditor,  # Sempre "SSP"
         "DOC - UF ÓRGÃO EMISSOR": "RN",
         "DOC - DATA DE EMISSÃO": data_emissao,
         "DOC - DATA DE VALIDADE": "",
@@ -250,7 +256,7 @@ if uploaded_files:
     st.subheader("Pré-visualização dos Dados Extraídos")
     st.dataframe(df, use_container_width=True)
 
-    # MONTAGEM DA PLANILHA EXCEL
+    # MONTAGEM DA PLANILHA EXCEL COM FORMATO E VALIDAÇÃO DA CAIXA
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Abertura de Conta"
@@ -273,6 +279,7 @@ if uploaded_files:
         bottom=Side(style="thin", color="D9D9D9"),
     )
 
+    # 1. Cabeçalho CNPJ
     ws["A1"] = "CNPJ"
     ws["A1"].font = font_bold_red
     ws["A1"].fill = fill_red
@@ -282,6 +289,7 @@ if uploaded_files:
     ws["B1"].font = font_regular
     ws["B1"].alignment = Alignment(horizontal="left", vertical="center")
 
+    # 2. Cabeçalhos Principais
     headers = [
         "NOME",
         "CPF",
@@ -313,6 +321,16 @@ if uploaded_files:
         )
         cell.fill = fill_red if col_num <= 2 else fill_blue
 
+    # 3. Lista Suspensa na Coluna Q (CONTA DESTINO - PROD/OPERAÇÃO)
+    dv_operacao = DataValidation(
+        type="list",
+        formula1='"CONTA CORRENTE,CONTA POUPANÇA,CONTA FÁCIL"',
+        allow_blank=True,
+    )
+    ws.add_data_validation(dv_operacao)
+    dv_operacao.add("Q3:Q200")
+
+    # 4. Preenchimento das Linhas
     for row_idx, row_data in enumerate(registros, start=3):
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=row_idx, column=col_idx)
