@@ -30,9 +30,11 @@ def extrair_dados_pdf(pdf_file, file_name):
     if nome_match:
         nome = nome_match.group(1).strip().split('\n')[0].upper()
     else:
-        nome = file_name.replace('.pdf', '').replace(/^\d+\s*/, '').upper()
+        # Nome limpo sem o prefixo numérico do arquivo
+        nome_limpo = re.sub(r'^\d+\s*', '', file_name.replace('.pdf', ''))
+        nome = nome_limpo.upper()
 
-    # 2. CPF (Armazena os 11 dígitos numéricos inteiros para aplicar a máscara no Excel)
+    # 2. CPF (Armazena os 11 dígitos numéricos inteiros)
     cpf_match = re.search(r"CPF[\s\n]*(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_completo) or \
                 re.search(r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b", texto_completo)
     if cpf_match:
@@ -51,12 +53,11 @@ def extrair_dados_pdf(pdf_file, file_name):
         telefone = ""
     ddd = 84
 
-    # 4. E-MAIL (Busca e-mail real ignorando links técnicos do eSocial)
+    # 4. E-MAIL
     email_match = re.search(r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})", texto_completo, re.IGNORECASE)
     if email_match:
         email = email_match.group(1).lower()
     else:
-        # Fallbacks específicos para os dossiês onde o e-mail está em formato de foto
         if "MARCOS MAXIMIANO" in nome:
             email = "santanamargarida871@gmail.com"
         elif "JORB EDUARDO" in nome:
@@ -78,7 +79,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         else:
             doc_numero = ""
 
-    # 6. DADOS BANCÁRIOS E REGRAS DE BANCO
+    # 6. DADOS BANCÁRIOS
     banco = ""
     prod_operacao = ""
     agencia = ""
@@ -90,7 +91,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         agencia = 2887
         conta = 53288
         dv = 1
-        prod_operacao = "" # Fica em branco para banco 341
+        prod_operacao = "" # Vazio para Banco Itaú (341)
     elif "CAIXA" in texto_completo.upper() or "104" in texto_completo or "MARCOS" in nome:
         banco = 104
         agencia = ""
@@ -137,12 +138,11 @@ if uploaded_files:
     st.subheader("Pré-visualização dos Dados Extraídos")
     st.dataframe(df, use_container_width=True)
 
-    # --- MONTAGEM DA PLANILHA EXCEL COM OPENPYXL (MÁSCARAS & FORMATO DA CAIXA) ---
+    # --- MONTAGEM DA PLANILHA EXCEL NO FORMATO DA CAIXA ---
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Abertura de Conta"
 
-    # Estilos
     font_bold = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     font_bold_red = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     font_regular = Font(name="Calibri", size=11, color="000000")
@@ -157,7 +157,7 @@ if uploaded_files:
         bottom=Side(style='thin', color='D9D9D9')
     )
 
-    # Linha 1: CNPJ Fixo da Empresa
+    # Linha 1: CNPJ
     ws['A1'] = "CNPJ"
     ws['A1'].font = font_bold_red
     ws['A1'].fill = fill_red
@@ -167,7 +167,7 @@ if uploaded_files:
     ws['B1'].font = font_regular
     ws['B1'].alignment = Alignment(horizontal="left", vertical="center")
 
-    # Linha 2: Cabeçalhos Padrão da Caixa
+    # Linha 2: Cabeçalhos da Caixa
     headers = [
         "NOME", "CPF", "DDD", "TELEFONE", "E-MAIL", 
         "DOC - NÚMERO", "DOC - ÓRGÃO EXPEDITO", "DOC - UF ÓRGÃO EMISSOR", 
@@ -183,7 +183,6 @@ if uploaded_files:
         cell.value = header
         cell.font = font_bold
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        # Colunas A e B são vermelhas, colunas C em diante são azuis
         cell.fill = fill_red if col_num <= 2 else fill_blue
 
     # Linha 3 em diante: Dados dos Funcionários
@@ -196,16 +195,15 @@ if uploaded_files:
             cell.border = border_thin
             cell.alignment = Alignment(horizontal="left", vertical="center")
 
-            # MÁSCARA ESPECIAL PARA CPF: Grava o número puro, mas exibe '000.000.000-00'
+            # MÁSCARA ESPECIAL PARA CPF: Grava o número de 11 dígitos e aplica o formato visual '000.000.000-00'
             if header == "CPF" and isinstance(val, int):
-                cell.number_format = '000""000""000"-"00' if str(val).zfill(11) else '@'
-                cell.value = str(val).zfill(11)
+                cell.number_format = '000"."000"."000"-"00'
             
-            # Formatação de campos com zeros à esquerda (ex: DOC - NÚMERO)
+            # DOC - NÚMERO (Formatado como texto para manter os zeros à esquerda)
             if header == "DOC - NÚMERO":
                 cell.number_format = '@'
 
-    # Ajustar largura das colunas automaticamente
+    # Ajustar largura das colunas
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)
         col_letter = get_column_letter(col[0].column)
