@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- 1. TELA DE LOGIN COM E-MAIL TRAVADO DA MIRANTES ---
+# --- 1. TELA DE LOGIN COM URL LIMPA (SEM ÂNCORAS #) ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -23,11 +23,15 @@ if not st.session_state.autenticado:
         try:
             st.image("logo_mirantes.png", width=180)
         except Exception:
-            st.markdown("## 🏢 **MIRANTES EMPREENDIMENTOS**")
+            st.html(
+                "<div style='font-size:24px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES EMPREENDIMENTOS</div>"
+            )
 
-        st.markdown("### 🔒 Acesso Restrito ao Departamento Pessoal")
+        st.write("")
+        st.html(
+            "<div style='font-size:18px; font-weight:bold; margin-bottom:10px;'>🔒 Acesso Restrito ao Departamento Pessoal</div>"
+        )
 
-        # Campo de E-mail travado/desabilitado para edição
         st.text_input(
             "Usuário:", value="dp@soumirantes.com.br", disabled=True
         )
@@ -50,7 +54,9 @@ with col_logo:
     try:
         st.image("logo_mirantes.png", width=140)
     except Exception:
-        st.markdown("### 🏢 **MIRANTES**")
+        st.html(
+            "<div style='font-size:20px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES</div>"
+        )
 
 with col_titulo:
     st.title("Extração de Dossiês - Abertura de Conta Salário")
@@ -245,4 +251,103 @@ if uploaded_files:
     st.dataframe(df, use_container_width=True)
 
     # MONTAGEM DA PLANILHA EXCEL
-    wb = openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Abertura de Conta"
+
+    font_bold = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_bold_red = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_regular = Font(name="Calibri", size=11, color="000000")
+
+    fill_red = PatternFill(
+        start_color="FF3300", end_color="FF3300", fill_type="solid"
+    )
+    fill_blue = PatternFill(
+        start_color="0000CC", end_color="0000CC", fill_type="solid"
+    )
+
+    border_thin = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    ws["A1"] = "CNPJ"
+    ws["A1"].font = font_bold_red
+    ws["A1"].fill = fill_red
+    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+
+    ws["B1"] = "49.036.333/0001-60"
+    ws["B1"].font = font_regular
+    ws["B1"].alignment = Alignment(horizontal="left", vertical="center")
+
+    headers = [
+        "NOME",
+        "CPF",
+        "DDD",
+        "TELEFONE",
+        "E-MAIL",
+        "DOC - NÚMERO",
+        "DOC - ÓRGÃO EXPEDITO",
+        "DOC - UF ÓRGÃO EMISSOR",
+        "DOC - DATA DE EMISSÃO",
+        "DOC - DATA DE VALIDADE",
+        "CONTA SALÁRIO - AGÊNCIA",
+        "CONTA SALÁRIO - PROD/OPERAÇÃO",
+        "CONTA SALÁRIO - CONTA",
+        "CONTA SALÁRIO - DV",
+        "CONTA DESTINO - BANCO",
+        "CONTA DESTINO - AGÊNCIA",
+        "CONTA DESTINO - PROD/OPERAÇÃO",
+        "CONTA DESTINO - CONTA",
+        "CONTA DESTINO - DV",
+    ]
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_num)
+        cell.value = header
+        cell.font = font_bold
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
+        cell.fill = fill_red if col_num <= 2 else fill_blue
+
+    for row_idx, row_data in enumerate(registros, start=3):
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            val = row_data.get(header, "")
+            cell.font = font_regular
+            cell.border = border_thin
+            cell.alignment = Alignment(horizontal="left", vertical="center")
+
+            # MÁSCARA EXATA DO CPF
+            if header == "CPF" and val != "":
+                try:
+                    cell.value = int(
+                        str(val).replace("-", "").replace(".", "")
+                    )
+                    cell.number_format = '000"."000"."000"-"00'
+                except Exception:
+                    cell.value = str(val)
+            else:
+                cell.value = val
+
+            if header == "DOC - NÚMERO":
+                cell.number_format = "@"
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    output = io.BytesIO()
+    wb.save(output)
+    excel_data = output.getvalue()
+
+    st.download_button(
+        label="📥 Baixar Planilha Padrão Caixa Econômica (.xlsx)",
+        data=excel_data,
+        file_name="Planilha_Abertura_Conta_Salario_Caixa.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
