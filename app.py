@@ -8,13 +8,47 @@ from openpyxl.utils import get_column_letter
 import streamlit as st
 
 st.set_page_config(
-    page_title="Gerador de Planilha Abertura de Conta Salário",
-    page_icon="🏦",
+    page_title="Abertura de Conta Salário - Mirantes",
+    page_icon="🏢",
     layout="wide"
 )
 
-st.title("🏦 Extração de Dossiês - Abertura de Conta Salário (Layout Caixa)")
-st.markdown("Arraste os PDFs dos funcionários para gerar a planilha formatada no padrão exato exigido pelo banco.")
+# --- 1. TELA DE AUTENTICAÇÃO POR DOMÍNIO (@soumirantes.com.br) ---
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+if not st.session_state.autenticado:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("## 🔒 Acesso Restrito - Mirantes Empreendimentos")
+        st.markdown("Por favor, informe seu e-mail corporativo para acessar a plataforma.")
+        
+        email_usuario = st.text_input("Seu E-mail Corporativo:", placeholder="seu.nome@soumirantes.com.br")
+        
+        if st.button("Acessar Plataforma", use_container_width=True):
+            if email_usuario.lower().endswith("@soumirantes.com.br"):
+                st.session_state.autenticado = True
+                st.session_state.usuario = email_usuario
+                st.rerun()
+            else:
+                st.error("❌ Acesso negado! Utilize um e-mail válido com o domínio @soumirantes.com.br")
+    st.stop()
+
+# --- 2. ÁREA PRINCIPAL DO APLICATIVO ---
+
+# Cabeçalho e Logo
+col_logo, col_titulo = st.columns([1, 4])
+with col_logo:
+    try:
+        st.image("logo_mirantes.png", width=160)
+    except:
+        st.markdown("### 🏢 **MIRANTES**")
+
+with col_titulo:
+    st.title("Extração de Dossiês - Abertura de Conta Salário")
+    st.caption(f"Usuário autenticado: **{st.session_state.usuario}**")
+
+st.markdown("Arraste os PDFs dos funcionários para gerar a planilha formatada no padrão exato da Caixa Econômica.")
 
 def extrair_dados_pdf(pdf_file, file_name):
     reader = pypdf.PdfReader(pdf_file)
@@ -50,7 +84,7 @@ def extrair_dados_pdf(pdf_file, file_name):
     elif "JORB" in file_name.upper() or "JORB" in texto_completo.upper():
         nome = "JORB EDUARDO DA SILVA"
 
-    # 2. CPF (Armazena números inteiros puros)
+    # 2. CPF (Armazena números inteiros puros de 11 dígitos)
     cpf_match = re.search(r"CPF[\s\n]*(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_completo) or \
                 re.search(r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b", texto_completo)
     if cpf_match:
@@ -87,9 +121,8 @@ def extrair_dados_pdf(pdf_file, file_name):
         email = email_match.group(1).lower() if email_match else ""
 
     # 5. DOC - NÚMERO (RG / CIN)
-    # Regra do RG Novo (CIN): Se não encontrar RG antigo, atribui o CPF
     if "WENDY" in nome:
-        doc_numero = str(cpf_num).zfill(11) # RG Novo (CPF)
+        doc_numero = str(cpf_num).zfill(11)
         orgao_expeditor = "PCIRN"
         data_emissao = "07/04/2026"
     elif "MARCOS" in nome:
@@ -119,19 +152,19 @@ def extrair_dados_pdf(pdf_file, file_name):
         agencia = 2623
         conta = 71931
         dv = 5
-        prod_operacao = "" # Fica em branco
+        prod_operacao = ""
     elif "ITAU" in texto_completo.upper() or "341" in texto_completo or "JORB" in nome:
         banco = 341
         agencia = 2887
         conta = 53288
         dv = 1
-        prod_operacao = "" # Fica em branco
+        prod_operacao = ""
     elif "CAIXA" in texto_completo.upper() or "104" in texto_completo or "MARCOS" in nome:
         banco = 104
         agencia = ""
         conta = ""
         dv = ""
-        prod_operacao = "CONTA CORRENTE" # CEF preenche sempre CONTA CORRENTE
+        prod_operacao = "CONTA CORRENTE"
 
     return {
         "NOME": nome,
@@ -224,18 +257,19 @@ if uploaded_files:
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=row_idx, column=col_idx)
             val = row_data.get(header, "")
-            cell.value = val
             cell.font = font_regular
             cell.border = border_thin
             cell.alignment = Alignment(horizontal="left", vertical="center")
 
-            # MÁSCARA ESPECIAL PARA CPF
+            # MÁSCARA EXATA DE CPF: Grava apenas o INT de 11 dígitos e aplica o Number Format do Excel
             if header == "CPF" and val != "":
                 try:
-                    cell.value = int(val)
-                    cell.number_format = '000""000""000"-"00'
+                    cell.value = int(str(val).replace('-', '').replace('.', ''))
+                    cell.number_format = '000"."000"."000"-"00'
                 except:
                     cell.value = str(val)
+            else:
+                cell.value = val
 
             # DOC - NÚMERO
             if header == "DOC - NÚMERO":
