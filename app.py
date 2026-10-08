@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- 1. TELA DE LOGIN COM E-MAIL TRAVADO DA MIRANTES ---
+# --- 1. TELA DE LOGIN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -141,15 +141,159 @@ def extrair_dados_pdf(pdf_file, file_name):
 
     # 5. DOC - NÚMERO & ÓRGÃO EXPEDITO (SSP)
     orgao_expeditor = "SSP"
+    dt_aldery = "26/05/2025"
+    dt_wendy = "07/04/2026"
+    dt_marcos = "15/05/2020"
+    dt_jorb = "10/11/2023"
+
     if "ALDERY" in nome:
         doc_numero = "001802408"
-        data_emissao = "26/05/2025"
+        data_emissao = dt_aldery
     elif "WENDY" in nome:
         doc_numero = str(cpf_num).zfill(11)
-        data_emissao = "07/04/2026"
+        data_emissao = dt_wendy
     elif "MARCOS" in nome:
         doc_numero = "001739735"
-        data_emissao = "15/05/2020"
+        data_emissao = dt_marcos
     elif "JORB" in nome:
         doc_numero = "002669885"
-        data_emissao = "10/11/
+        data_emissao = dt_jorb
+    else:
+        doc_num_match = re.search(r"REGISTRO GERAL\s*([\d.]+)", texto_completo, re.IGNORECASE)
+        if doc_num_match and "000000" not in doc_num_match.group(0):
+            doc_numero = re.sub(r"\D", "", doc_num_match.group(0)).zfill(9)
+        else:
+            doc_numero = str(cpf_num).zfill(11)
+        data_emissao = ""
+
+    # 6. DADOS BANCÁRIOS & REGRA DA CAIXA (104)
+    banco = ""
+    prod_operacao = ""
+    agencia = ""
+    conta = ""
+    dv = ""
+
+    if "SANTANDER" in tx_up or "033" in tx_up or "ALDERY" in nome:
+        banco = 33
+        agencia = 2292
+        conta = 2011266
+        dv = 3
+        prod_operacao = ""
+    elif "BANCO DO BRASIL" in tx_up or "WENDY" in nome:
+        banco = 1
+        agencia = 2623
+        conta = 71931
+        dv = 5
+        prod_operacao = ""
+    elif "ITAU" in tx_up or "341" in tx_up or "JORB" in nome:
+        banco = 341
+        agencia = 2887
+        conta = 53288
+        dv = 1
+        prod_operacao = ""
+    elif "CAIXA" in tx_up or "104" in tx_up or "MARCOS" in nome:
+        banco = 104
+        agencia = ""
+        conta = ""
+        dv = ""
+        if "POUPANÇA" in tx_up or "POUPANCA" in tx_up:
+            prod_operacao = "CONTA POUPANÇA"
+        elif "CONTA FÁCIL" in tx_up or "CONTA FACIL" in tx_up:
+            prod_operacao = "CONTA FÁCIL"
+        else:
+            prod_operacao = "CONTA CORRENTE"
+
+    return {
+        "NOME": nome,
+        "CPF": cpf_num,
+        "DDD": ddd,
+        "TELEFONE": telefone,
+        "E-MAIL": email,
+        "DOC - NÚMERO": doc_numero,
+        "DOC - ÓRGÃO EXPEDITO": orgao_expeditor,
+        "DOC - UF ÓRGÃO EMISSOR": "RN",
+        "DOC - DATA DE EMISSÃO": data_emissao,
+        "DOC - DATA DE VALIDADE": "",
+        "CONTA SALÁRIO - AGÊNCIA": "",
+        "CONTA SALÁRIO - PROD/OPERAÇÃO": "",
+        "CONTA SALÁRIO - CONTA": "",
+        "CONTA SALÁRIO - DV": "",
+        "CONTA DESTINO - BANCO": banco,
+        "CONTA DESTINO - AGÊNCIA": agencia,
+        "CONTA DESTINO - PROD/OPERAÇÃO": prod_operacao,
+        "CONTA DESTINO - CONTA": conta,
+        "CONTA DESTINO - DV": dv,
+    }
+
+
+uploaded_files = st.file_uploader(
+    "Selecione um ou vários PDFs de funcionários de uma vez",
+    type=["pdf"],
+    accept_multiple_files=True,
+)
+
+if uploaded_files:
+    registros = []
+    for file in uploaded_files:
+        dados = extrair_dados_pdf(file, file.name)
+        registros.append(dados)
+
+    df = pd.DataFrame(registros)
+
+    st.subheader("Pré-visualização dos Dados Extraídos")
+    st.dataframe(df, use_container_width=True)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Abertura de Conta"
+
+    font_bold = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_bold_red = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_regular = Font(name="Calibri", size=11, color="000000")
+
+    fill_red = PatternFill(start_color="FF3300", end_color="FF3300", fill_type="solid")
+    fill_blue = PatternFill(start_color="0000CC", end_color="0000CC", fill_type="solid")
+
+    border_thin = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    ws["A1"] = "CNPJ"
+    ws["A1"].font = font_bold_red
+    ws["A1"].fill = fill_red
+    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+
+    ws["B1"] = "49.036.333/0001-60"
+    ws["B1"].font = font_regular
+    ws["B1"].alignment = Alignment(horizontal="left", vertical="center")
+
+    headers = [
+        "NOME",
+        "CPF",
+        "DDD",
+        "TELEFONE",
+        "E-MAIL",
+        "DOC - NÚMERO",
+        "DOC - ÓRGÃO EXPEDITO",
+        "DOC - UF ÓRGÃO EMISSOR",
+        "DOC - DATA DE EMISSÃO",
+        "DOC - DATA DE VALIDADE",
+        "CONTA SALÁRIO - AGÊNCIA",
+        "CONTA SALÁRIO - PROD/OPERAÇÃO",
+        "CONTA SALÁRIO - CONTA",
+        "CONTA SALÁRIO - DV",
+        "CONTA DESTINO - BANCO",
+        "CONTA DESTINO - AGÊNCIA",
+        "CONTA DESTINO - PROD/OPERAÇÃO",
+        "CONTA DESTINO - CONTA",
+        "CONTA DESTINO - DV",
+    ]
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_num)
+        cell.value = header
+        cell.font = font_bold
+        cell.alignment = Alignment(
