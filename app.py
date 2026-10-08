@@ -24,21 +24,13 @@ if not st.session_state.autenticado:
         try:
             st.image("logo_mirantes.png", width=180)
         except Exception:
-            st.html(
-                "<div style='font-size:24px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES EMPREENDIMENTOS</div>"
-            )
+            st.html("<div style='font-size:24px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES EMPREENDIMENTOS</div>")
 
         st.write("")
-        st.html(
-            "<div style='font-size:18px; font-weight:bold; margin-bottom:10px;'>🔒 Acesso Restrito ao Departamento Pessoal</div>"
-        )
+        st.html("<div style='font-size:18px; font-weight:bold; margin-bottom:10px;'>🔒 Acesso Restrito ao Departamento Pessoal</div>")
 
-        st.text_input(
-            "Usuário:", value="dp@soumirantes.com.br", disabled=True
-        )
-        senha_input = st.text_input(
-            "Senha:", type="password", placeholder="••••••••"
-        )
+        st.text_input("Usuário:", value="dp@soumirantes.com.br", disabled=True)
+        senha_input = st.text_input("Senha:", type="password", placeholder="••••••••")
 
         if st.button("Entrar no Sistema", use_container_width=True):
             if senha_input == "dp@mirantes":
@@ -55,9 +47,7 @@ with col_logo:
     try:
         st.image("logo_mirantes.png", width=140)
     except Exception:
-        st.html(
-            "<div style='font-size:20px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES</div>"
-        )
+        st.html("<div style='font-size:20px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES</div>")
 
 with col_titulo:
     st.title("Extração de Dossiês - Abertura de Conta Salário")
@@ -82,26 +72,16 @@ def extrair_dados_pdf(pdf_file, file_name):
 
     # 1. NOME
     nome = ""
-    lines = [
-        line.strip() for line in texto_completo.split("\n") if line.strip()
-    ]
+    lines = [line.strip() for line in texto_completo.split("\n") if line.strip()]
     for i, line in enumerate(lines):
         if line.upper() == "NOME" and i + 1 < len(lines):
             candidato = lines[i + 1].strip().upper()
-            if (
-                candidato
-                not in ["CPF", "MATRÍCULA", "TIPO DE REGISTRO", "ADMISSÃO"]
-                and len(candidato) > 3
-            ):
+            if candidato not in ["CPF", "MATRÍCULA", "TIPO DE REGISTRO", "ADMISSÃO"] and len(candidato) > 3:
                 nome = candidato
                 break
 
     if not nome:
-        nome_match = re.search(
-            r"Nome civil[\s\n]+([A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ\s]{5,50})",
-            texto_completo,
-            re.IGNORECASE,
-        )
+        nome_match = re.search(r"Nome civil[\s\n]+([A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ\s]{5,50})", texto_completo, re.IGNORECASE)
         if nome_match and "CPF" not in nome_match.group(1).upper():
             nome = nome_match.group(1).strip().split("\n")[0].upper()
         else:
@@ -119,9 +99,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         nome = "JORB EDUARDO DA SILVA"
 
     # 2. CPF
-    cpf_match = re.search(
-        r"CPF[\s\n]*(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_completo
-    ) or re.search(r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b", texto_completo)
+    cpf_match = re.search(r"CPF[\s\n]*(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_completo) or re.search(r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b", texto_completo)
     if cpf_match:
         cpf_num = int(re.sub(r"\D", "", cpf_match.group(1)))
     else:
@@ -140,11 +118,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         telefone = "99456-6953"
     else:
         tel_match = re.search(r"(9\d{4}[-\s]?\d{4})", texto_completo)
-        if (
-            tel_match
-            and "90363" not in tel_match.group(1)
-            and "90027" not in tel_match.group(1)
-        ):
+        if tel_match and "90363" not in tel_match.group(1) and "90027" not in tel_match.group(1):
             tel_raw = re.sub(r"\D", "", tel_match.group(1))
             telefone = f"{tel_raw[:5]}-{tel_raw[5:]}"
         else:
@@ -160,11 +134,7 @@ def extrair_dados_pdf(pdf_file, file_name):
     elif "JORB" in nome:
         email = "jorbeduardo12345@gmail.com"
     else:
-        email_match = re.search(
-            r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})",
-            texto_completo,
-            re.IGNORECASE,
-        )
+        email_match = re.search(r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})", texto_completo, re.IGNORECASE)
         email = email_match.group(1).lower() if email_match else ""
 
     # 5. DOC - NÚMERO (RG / CIN) & ÓRGÃO EXPEDITO (SEMPRE "SSP")
@@ -172,7 +142,4 @@ def extrair_dados_pdf(pdf_file, file_name):
     if "ALDERY" in nome:
         doc_numero = "001802408"
         data_emissao = "26/05/2025"
-    elif "WENDY" in nome:
-        doc_numero = str(cpf_num).zfill(11)
-        data_emissao = "07/04/2026"
-    elif "
+    elif "WENDY"
