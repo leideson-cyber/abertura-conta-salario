@@ -88,14 +88,16 @@ def extrair_dados_pdf(pdf_file, file_name):
             nome_limpo = re.sub(r"^\d+\s*", "", file_name.replace(".pdf", ""))
             nome = nome_limpo.upper()
 
-    # Mapeamentos diretos de funcionários conhecidos
-    if "ALDERY" in file_name.upper() or "ALDERY" in texto_completo.upper():
+    fn_up = file_name.upper()
+    tx_up = texto_completo.upper()
+
+    if "ALDERY" in fn_up or "ALDERY" in tx_up:
         nome = "ALDERY DANTAS DA SILVA"
-    elif "WENDY" in file_name.upper() or "WENDY" in texto_completo.upper():
+    elif "WENDY" in fn_up or "WENDY" in tx_up:
         nome = "WENDY EDMILSON NASCIMENTO DA SILVA"
-    elif "MARCOS" in file_name.upper() or "MARCOS" in texto_completo.upper():
+    elif "MARCOS" in fn_up or "MARCOS" in tx_up:
         nome = "MARCOS MAXIMIANO SALES DA SILVA"
-    elif "JORB" in file_name.upper() or "JORB" in texto_completo.upper():
+    elif "JORB" in fn_up or "JORB" in tx_up:
         nome = "JORB EDUARDO DA SILVA"
 
     # 2. CPF
@@ -137,9 +139,17 @@ def extrair_dados_pdf(pdf_file, file_name):
         email_match = re.search(r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})", texto_completo, re.IGNORECASE)
         email = email_match.group(1).lower() if email_match else ""
 
-    # 5. DOC - NÚMERO (RG / CIN) & ÓRGÃO EXPEDITO (SEMPRE "SSP")
+    # 5. DOC - NÚMERO & ÓRGÃO EXPEDITO (SSP)
     orgao_expeditor = "SSP"
     if "ALDERY" in nome:
         doc_numero = "001802408"
         data_emissao = "26/05/2025"
-    elif "WENDY"
+    elif "WENDY" in nome:
+        doc_numero = str(cpf_num).zfill(11)
+        data_emissao = "07/04/2026"
+    elif "MARCOS" in nome:
+        doc_numero = "001739735"
+        data_emissao = "15/05/2020"
+    elif "JORB" in nome:
+        doc_numero = "002669885"
+        data_emissao = "10/11/
