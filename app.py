@@ -10,6 +10,21 @@ import streamlit as st
 
 st.set_page_config(page_title="Abertura de Conta Salario - Mirantes", page_icon="🏢", layout="wide")
 
+# MAPA DE EMPRESAS E CNPJS (APENAS NÚMEROS)
+EMPRESAS_CNPJ = {
+    "MIRANTES": "20300896000131",
+    "ML2": "28090722000101",
+    "ML4": "30206782000180",
+    "ML5": "49036333000160",
+    "ML6": "51986702000127",
+    "ML7": "51239256000197",
+    "ML8": "52062454000190",
+    "ML9": "62273439000145",
+    "ML10": "63634466000169",
+    "ML11": "63633529000162",
+    "ML12": "68803945000185"
+}
+
 # --- 1. TELA DE LOGIN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -54,6 +69,21 @@ with col_user:
 
 st.divider()
 
+# --- SELEÇÃO DE EMPRESA E CNPJ ---
+col_emp, col_info = st.columns([2, 3])
+with col_emp:
+    empresa_selecionada = st.selectbox(
+        "🏢 Selecione a Empresa / SPE:",
+        options=list(EMPRESAS_CNPJ.keys()),
+        index=3  # Padrão ML5
+    )
+    cnpj_numerico = EMPRESAS_CNPJ[empresa_selecionada]
+
+with col_info:
+    st.info(f"📌 **CNPJ Selecionado (Apenas Números):** `{cnpj_numerico}`")
+
+st.write("")
+
 def extrair_dados_pdf(pdf_file, file_name):
     reader = pypdf.PdfReader(pdf_file)
     texto_completo = ""
@@ -83,7 +113,6 @@ def extrair_dados_pdf(pdf_file, file_name):
             nome_limpo = re.sub(r"^\d+\s*", "", file_name.replace(".pdf", ""))
             nome = nome_limpo.upper()
 
-    # Ajustes finos de nomes conhecidos
     if "ALDERY" in fn_up or "ALDERY" in tx_up:
         nome = "ALDERY DANTAS DA SILVA"
     elif "WENDY" in fn_up or "WENDY" in tx_up:
@@ -132,10 +161,11 @@ def extrair_dados_pdf(pdf_file, file_name):
         email_match = re.search(r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})", texto_completo, re.IGNORECASE)
         email = email_match.group(1).lower() if email_match else ""
 
-    # 5. DOC - NÚMERO (RG) / ÓRGÃO EXPEDITO (SSP) / DATA EMISSÃO REAL
+    # 5. DOC - NÚMERO (CIN NOVO MODELO = CPF / RG ANTIGO = NÚMERO)
     orgao_expeditor = "SSP"
-    if "ALDERY" in nome:
-        doc_numero = "001802408"
+    if "ALDERY" in nome or "CIN" in tx_up:
+        # Novo formato de identidade nacional (CIN) = Utiliza o próprio CPF
+        doc_numero = str(cpf_num).zfill(11) if cpf_num else ""
         data_emissao = "26/05/2025"
     elif "WENDY" in nome:
         doc_numero = str(cpf_num).zfill(11)
@@ -154,7 +184,7 @@ def extrair_dados_pdf(pdf_file, file_name):
             doc_numero = str(cpf_num).zfill(11) if cpf_num else ""
         data_emissao = ""
 
-    # 6. DADOS BANCÁRIOS (SANTANDER / BANCO DO BRASIL / ITAÚ / CAIXA)
+    # 6. DADOS BANCÁRIOS
     banco = ""
     prod_operacao = ""
     agencia = ""
@@ -167,7 +197,7 @@ def extrair_dados_pdf(pdf_file, file_name):
         conta = "2011266"
         dv = "3"
         prod_operacao = ""
-    elif "BANCO DO BRASIL" in tx_up or "WENDY" in nome:
+    elif "BANCO DO BRASIL" in tx_up or "001" in tx_up or "WENDY" in nome:
         banco = 1
         agencia = "2623"
         conta = "71931"
@@ -243,9 +273,11 @@ if uploaded_files:
     ws["A1"].fill = fill_red
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
 
-    ws["B1"] = "49.036.333/0001-60"
+    # PREENCHE COM O CNPJ DA EMPRESA SELECIONADA (SOMENTE NÚMEROS)
+    ws["B1"] = cnpj_numerico
     ws["B1"].font = font_regular
     ws["B1"].alignment = Alignment(horizontal="left", vertical="center")
+    ws["B1"].number_format = "@"
 
     headers = ["NOME", "CPF", "DDD", "TELEFONE", "E-MAIL", "DOC - NÚMERO", "DOC - ÓRGÃO EXPEDITO", "DOC - UF ÓRGÃO EMISSOR", "DOC - DATA DE EMISSÃO", "DOC - DATA DE VALIDADE", "CONTA SALÁRIO - AGÊNCIA", "CONTA SALÁRIO - PROD/OPERAÇÃO", "CONTA SALÁRIO - CONTA", "CONTA SALÁRIO - DV", "CONTA DESTINO - BANCO", "CONTA DESTINO - AGÊNCIA", "CONTA DESTINO - PROD/OPERAÇÃO", "CONTA DESTINO - CONTA", "CONTA DESTINO - DV"]
 
@@ -292,4 +324,9 @@ if uploaded_files:
     wb.save(output)
     excel_data = output.getvalue()
 
-    st.download_button(label="📥 Baixar Planilha Padrao Caixa Economica (.xlsx)", data=excel_data, file_name="Planilha_Abertura_Conta_Salario_Caixa.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button(
+        label=f"📥 Baixar Planilha Padrão Caixa - {empresa_selecionada} (.xlsx)",
+        data=excel_data,
+        file_name=f"Planilha_Abertura_Conta_Salario_{empresa_selecionada}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
