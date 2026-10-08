@@ -8,13 +8,8 @@ import pandas as pd
 import pypdf
 import streamlit as st
 
-st.set_page_config(
-    page_title="Abertura de Conta Salário - Mirantes",
-    page_icon="🏢",
-    layout="wide",
-)
+st.set_page_config(page_title="Abertura de Conta Salario - Mirantes", page_icon="🏢", layout="wide")
 
-# --- 1. TELA DE LOGIN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -24,14 +19,11 @@ if not st.session_state.autenticado:
         try:
             st.image("logo_mirantes.png", width=180)
         except Exception:
-            st.html("<div style='font-size:24px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES EMPREENDIMENTOS</div>")
-
+            st.html("<div>🏢 MIRANTES EMPREENDIMENTOS</div>")
         st.write("")
-        st.html("<div style='font-size:18px; font-weight:bold; margin-bottom:10px;'>🔒 Acesso Restrito ao Departamento Pessoal</div>")
-
-        st.text_input("Usuário:", value="dp@soumirantes.com.br", disabled=True)
+        st.html("<div>🔒 Acesso Restrito ao Departamento Pessoal</div>")
+        st.text_input("Usuario:", value="dp@soumirantes.com.br", disabled=True)
         senha_input = st.text_input("Senha:", type="password", placeholder="••••••••")
-
         if st.button("Entrar no Sistema", use_container_width=True):
             if senha_input == "dp@mirantes":
                 st.session_state.autenticado = True
@@ -41,16 +33,15 @@ if not st.session_state.autenticado:
                 st.error("❌ Senha incorreta!")
     st.stop()
 
-# --- 2. ÁREA LOGADA DA APLICAÇÃO ---
 col_logo, col_titulo, col_user = st.columns([1, 3, 1])
 with col_logo:
     try:
         st.image("logo_mirantes.png", width=140)
     except Exception:
-        st.html("<div style='font-size:20px; font-weight:bold; color:#FF3300;'>🏢 MIRANTES</div>")
+        st.html("<div>🏢 MIRANTES</div>")
 
 with col_titulo:
-    st.title("Extração de Dossiês - Abertura de Conta Salário")
+    st.title("Extracao de Dossies - Abertura de Conta Salario")
 
 with col_user:
     st.caption("👤 **DP Mirantes**")
@@ -61,7 +52,6 @@ with col_user:
 
 st.divider()
 
-
 def extrair_dados_pdf(pdf_file, file_name):
     reader = pypdf.PdfReader(pdf_file)
     texto_completo = ""
@@ -70,13 +60,12 @@ def extrair_dados_pdf(pdf_file, file_name):
         if txt:
             texto_completo += "\n" + txt
 
-    # 1. NOME
     nome = ""
     lines = [line.strip() for line in texto_completo.split("\n") if line.strip()]
     for i, line in enumerate(lines):
         if line.upper() == "NOME" and i + 1 < len(lines):
             candidato = lines[i + 1].strip().upper()
-            if candidato not in ["CPF", "MATRÍCULA", "TIPO DE REGISTRO", "ADMISSÃO"] and len(candidato) > 3:
+            if candidato not in ["CPF", "MATRICULA", "TIPO DE REGISTRO", "ADMISSAO"] and len(candidato) > 3:
                 nome = candidato
                 break
 
@@ -100,7 +89,6 @@ def extrair_dados_pdf(pdf_file, file_name):
     elif "JORB" in fn_up or "JORB" in tx_up:
         nome = "JORB EDUARDO DA SILVA"
 
-    # 2. CPF
     cpf_match = re.search(r"CPF[\s\n]*(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_completo) or re.search(r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b", texto_completo)
     if cpf_match:
         cpf_num = int(re.sub(r"\D", "", cpf_match.group(1)))
@@ -108,7 +96,6 @@ def extrair_dados_pdf(pdf_file, file_name):
         cpf_digits = re.search(r"\b(\d{11})\b", texto_completo)
         cpf_num = int(cpf_digits.group(1)) if cpf_digits else ""
 
-    # 3. TELEFONE & DDD
     ddd = 84
     if "ALDERY" in nome:
         telefone = "99941-6281"
@@ -126,7 +113,6 @@ def extrair_dados_pdf(pdf_file, file_name):
         else:
             telefone = ""
 
-    # 4. E-MAIL
     if "ALDERY" in nome:
         email = "aldery0426@gmail.com"
     elif "WENDY" in nome:
@@ -139,7 +125,6 @@ def extrair_dados_pdf(pdf_file, file_name):
         email_match = re.search(r"([a-zA-Z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|live|icloud)[a-zA-Z0-9.-]*\.[a-zA-Z]{2,})", texto_completo, re.IGNORECASE)
         email = email_match.group(1).lower() if email_match else ""
 
-    # 5. DOC - NÚMERO & ÓRGÃO EXPEDITO (SSP)
     orgao_expeditor = "SSP"
     dt_aldery = "26/05/2025"
     dt_wendy = "07/04/2026"
@@ -159,14 +144,13 @@ def extrair_dados_pdf(pdf_file, file_name):
         doc_numero = "002669885"
         data_emissao = dt_jorb
     else:
-        doc_num_match = re.search(r"REGISTRO GERAL\s*([\d.]+)", texto_completo, re.IGNORECASE)
+        doc_num_match = re.search(r"REGISTRO GERAL[\s\n]*([\d.]+)", texto_completo, re.IGNORECASE)
         if doc_num_match and "000000" not in doc_num_match.group(0):
             doc_numero = re.sub(r"\D", "", doc_num_match.group(0)).zfill(9)
         else:
             doc_numero = str(cpf_num).zfill(11)
         data_emissao = ""
 
-    # 6. DADOS BANCÁRIOS & REGRA DA CAIXA (104)
     banco = ""
     prod_operacao = ""
     agencia = ""
@@ -196,9 +180,9 @@ def extrair_dados_pdf(pdf_file, file_name):
         agencia = ""
         conta = ""
         dv = ""
-        if "POUPANÇA" in tx_up or "POUPANCA" in tx_up:
+        if "POUPANCA" in tx_up or "POUPANÇA" in tx_up:
             prod_operacao = "CONTA POUPANÇA"
-        elif "CONTA FÁCIL" in tx_up or "CONTA FACIL" in tx_up:
+        elif "CONTA FACIL" in tx_up or "CONTA FÁCIL" in tx_up:
             prod_operacao = "CONTA FÁCIL"
         else:
             prod_operacao = "CONTA CORRENTE"
@@ -225,75 +209,4 @@ def extrair_dados_pdf(pdf_file, file_name):
         "CONTA DESTINO - DV": dv,
     }
 
-
-uploaded_files = st.file_uploader(
-    "Selecione um ou vários PDFs de funcionários de uma vez",
-    type=["pdf"],
-    accept_multiple_files=True,
-)
-
-if uploaded_files:
-    registros = []
-    for file in uploaded_files:
-        dados = extrair_dados_pdf(file, file.name)
-        registros.append(dados)
-
-    df = pd.DataFrame(registros)
-
-    st.subheader("Pré-visualização dos Dados Extraídos")
-    st.dataframe(df, use_container_width=True)
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Abertura de Conta"
-
-    font_bold = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    font_bold_red = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    font_regular = Font(name="Calibri", size=11, color="000000")
-
-    fill_red = PatternFill(start_color="FF3300", end_color="FF3300", fill_type="solid")
-    fill_blue = PatternFill(start_color="0000CC", end_color="0000CC", fill_type="solid")
-
-    border_thin = Border(
-        left=Side(style="thin", color="D9D9D9"),
-        right=Side(style="thin", color="D9D9D9"),
-        top=Side(style="thin", color="D9D9D9"),
-        bottom=Side(style="thin", color="D9D9D9"),
-    )
-
-    ws["A1"] = "CNPJ"
-    ws["A1"].font = font_bold_red
-    ws["A1"].fill = fill_red
-    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
-
-    ws["B1"] = "49.036.333/0001-60"
-    ws["B1"].font = font_regular
-    ws["B1"].alignment = Alignment(horizontal="left", vertical="center")
-
-    headers = [
-        "NOME",
-        "CPF",
-        "DDD",
-        "TELEFONE",
-        "E-MAIL",
-        "DOC - NÚMERO",
-        "DOC - ÓRGÃO EXPEDITO",
-        "DOC - UF ÓRGÃO EMISSOR",
-        "DOC - DATA DE EMISSÃO",
-        "DOC - DATA DE VALIDADE",
-        "CONTA SALÁRIO - AGÊNCIA",
-        "CONTA SALÁRIO - PROD/OPERAÇÃO",
-        "CONTA SALÁRIO - CONTA",
-        "CONTA SALÁRIO - DV",
-        "CONTA DESTINO - BANCO",
-        "CONTA DESTINO - AGÊNCIA",
-        "CONTA DESTINO - PROD/OPERAÇÃO",
-        "CONTA DESTINO - CONTA",
-        "CONTA DESTINO - DV",
-    ]
-
-    for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=2, column=col_num)
-        cell.value = header
-        cell.font = font_bold
-        cell.alignment = Alignment(
+uploaded_files = st.file_uploader("Selecione um ou varios PDFs de funcionarios de uma vez", type=["pdf"], accept_
